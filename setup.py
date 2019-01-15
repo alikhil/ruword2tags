@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="ruword2tags",
-    version="0.0.1",
+    version="0.0.2",
     author="Ilya Koziev",
     author_email="inkoziev@gmail.com",
     description="Russian morphology",
@@ -13,4 +13,5 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/Koziev/ruword2tags",
     packages=setuptools.find_packages(),
+    include_package_data=True,
 )
