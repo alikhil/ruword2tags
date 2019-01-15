@@ -49,6 +49,7 @@ class RuWord2Tags:
         self.index2tagset = None
         self.ending2tagsets = None
         self.trie_root = None
+        self.all_ending2tagsets = None
 
     def load(self):
         module_folder = str(pathlib.Path(__file__).resolve().parent)
@@ -61,22 +62,42 @@ class RuWord2Tags:
             self.ending_lens = data['ending_lens']
             self.index2tagset = data['index2tagset']
             self.ending2tagsets = data['ending2tagsets']
-            trie_words = data['trie_words']
+            self.all_ending2tagsets = data['all_ending2tagsets']
 
             self.trie_root = TrieNode('')
+            trie_words = data['trie_words']
             for word, itagset in trie_words:
                 self.trie_root.add(word, itagset)
 
     def __getitem__(self, word):
-        hit_by_ending = False
+        hit = False
         for ending_len in self.ending_lens:
             ending = word[-ending_len:] if len(word) > ending_len else u''
             if ending in self.ending2tagsets:
                 for itagset in self.ending2tagsets[ending]:
                     yield self.index2tagset[itagset]
-                hit_by_ending = True
+                hit = True
                 break
 
-        if not hit_by_ending:
+        if not hit:
             for itagset in self.trie_root.find_tagsets(word):
+                hit = True
                 yield self.index2tagset[itagset]
+
+        if not hit:
+            for ending_len in reversed(self.ending_lens):
+                ending = word[-ending_len:] if len(word) > ending_len else u''
+                if ending in self.all_ending2tagsets:
+                    for itagset in self.all_ending2tagsets[ending]:
+                        yield self.index2tagset[itagset]
+                    hit = True
+                    break
+
+
+if __name__ == '__main__':
+    word2tags = RuWord2Tags()
+    word2tags.load()
+
+    for word in u'кошки ккошки'.split():
+        for i, tagset in enumerate(word2tags[word]):
+            print(u'{}[{}] => {}'.format(word, i, tagset))
