@@ -51,7 +51,7 @@ class RuWord2Tags:
         self.trie_root = None
 
     def load(self):
-        module_folder = pathlib.Path(__file__).resolve().parent
+        module_folder = str(pathlib.Path(__file__).resolve().parent)
         p = os.path.join(module_folder, '../output', self.dict_filename)
         if not os.path.exists(p):
             p = os.path.join(module_folder, self.dict_filename)
