@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from __future__ import print_function
 
 import gzip
@@ -93,11 +94,32 @@ class RuWord2Tags:
                     hit = True
                     break
 
-
-if __name__ == '__main__':
+def run_tests():
+    print('Start testing...')
     word2tags = RuWord2Tags()
     word2tags.load()
 
-    for word in u'кошки ккошки'.split():
+    cases = [(u'кошки', [u'СУЩЕСТВИТЕЛЬНОЕ ПАДЕЖ=ИМ РОД=ЖЕН ЧИСЛО=МН',
+                         u'СУЩЕСТВИТЕЛЬНОЕ ПАДЕЖ=РОД РОД=ЖЕН ЧИСЛО=ЕД']),
+             (u'на', [u'ГЛАГОЛ ВИД=НЕСОВЕРШ ЛИЦО=2 НАКЛОНЕНИЕ=ПОБУД ТИП_ГЛАГОЛА=СТАТИЧ ЧИСЛО=ЕД',
+                      u'ПРЕДЛОГ ПАДЕЖ=ВИН ПАДЕЖ=МЕСТ ПАДЕЖ=ПРЕДЛ'])]
+
+    for word, required_tagsets in cases:
+        model_tagsets = list(word2tags[word])
+        assert(len(model_tagsets) == len(required_tagsets))
+        for model_tagset in model_tagsets:
+            if model_tagset not in required_tagsets:
+                raise AssertionError(u'Tagset "{}" for word "{}" is not valid'.format(model_tagset, word))
+
+    print('All tests PASSED.')
+
+
+if __name__ == '__main__':
+    run_tests()
+
+    word2tags = RuWord2Tags()
+    word2tags.load()
+
+    for word in u'кошки ккошки на'.split():
         for i, tagset in enumerate(word2tags[word]):
             print(u'{}[{}] => {}'.format(word, i, tagset))
