@@ -99,14 +99,20 @@ def run_tests():
     word2tags = RuWord2Tags()
     word2tags.load()
 
-    cases = [(u'кошки', [u'СУЩЕСТВИТЕЛЬНОЕ ПАДЕЖ=ИМ РОД=ЖЕН ЧИСЛО=МН',
+    cases = [(u'а', [u'СОЮЗ', u'ЧАСТИЦА']),
+             (u'кошки', [u'СУЩЕСТВИТЕЛЬНОЕ ПАДЕЖ=ИМ РОД=ЖЕН ЧИСЛО=МН',
                          u'СУЩЕСТВИТЕЛЬНОЕ ПАДЕЖ=РОД РОД=ЖЕН ЧИСЛО=ЕД']),
              (u'на', [u'ГЛАГОЛ ВИД=НЕСОВЕРШ ЛИЦО=2 НАКЛОНЕНИЕ=ПОБУД ТИП_ГЛАГОЛА=СТАТИЧ ЧИСЛО=ЕД',
-                      u'ПРЕДЛОГ ПАДЕЖ=ВИН ПАДЕЖ=МЕСТ ПАДЕЖ=ПРЕДЛ'])]
+                      u'ПРЕДЛОГ ПАДЕЖ=ВИН ПАДЕЖ=МЕСТ ПАДЕЖ=ПРЕДЛ',
+                      u'ЧАСТИЦА'])]
 
     for word, required_tagsets in cases:
         model_tagsets = list(word2tags[word])
-        assert(len(model_tagsets) == len(required_tagsets))
+        if len(model_tagsets) != len(required_tagsets):
+            #for tagset in model_tagsets:
+            #    print(u'DEBUG@112 word={} tagset={}'.format(word, tagset))
+            raise AssertionError(u'word="{}": {} tagset(s) required, {} found'.format(word, len(required_tagsets), len(model_tagsets)))
+
         for model_tagset in model_tagsets:
             if model_tagset not in required_tagsets:
                 raise AssertionError(u'Tagset "{}" for word "{}" is not valid'.format(model_tagset, word))
