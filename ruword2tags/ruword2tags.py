@@ -52,11 +52,14 @@ class RuWord2Tags:
         self.trie_root = None
         self.all_ending2tagsets = None
 
-    def load(self):
-        module_folder = str(pathlib.Path(__file__).resolve().parent)
-        p = os.path.join(module_folder, '../output', self.dict_filename)
-        if not os.path.exists(p):
-            p = os.path.join(module_folder, self.dict_filename)
+    def load(self, dict_path=None):
+        if dict_path is None:
+            module_folder = str(pathlib.Path(__file__).resolve().parent)
+            p = os.path.join(module_folder, '../output', self.dict_filename)
+            if not os.path.exists(p):
+                p = os.path.join(module_folder, self.dict_filename)
+        else:
+            p = dict_path
 
         with gzip.open(p, 'r') as f:
             data = pickle.load(f)
