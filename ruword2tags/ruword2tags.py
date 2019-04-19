@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+"""
+19.04.2019 - при парсинге словарной базы Solarix пропускаются словоформы с
+отрицательным скорингом (неупотребимые слова).
+"""
+
 from __future__ import print_function
 
 import gzip
@@ -100,9 +105,12 @@ def run_tests(dict_path=None):
     cases = [(u'а', [u'СОЮЗ', u'ЧАСТИЦА']),
              (u'кошки', [u'СУЩЕСТВИТЕЛЬНОЕ ПАДЕЖ=ИМ РОД=ЖЕН ЧИСЛО=МН',
                          u'СУЩЕСТВИТЕЛЬНОЕ ПАДЕЖ=РОД РОД=ЖЕН ЧИСЛО=ЕД']),
-             (u'на', [u'ГЛАГОЛ ВИД=НЕСОВЕРШ ЛИЦО=2 НАКЛОНЕНИЕ=ПОБУД ТИП_ГЛАГОЛА=СТАТИЧ ЧИСЛО=ЕД',
+             (u'на', [#u'ГЛАГОЛ ВИД=НЕСОВЕРШ ЛИЦО=2 НАКЛОНЕНИЕ=ПОБУД ТИП_ГЛАГОЛА=СТАТИЧ ЧИСЛО=ЕД',
                       u'ПРЕДЛОГ ПАДЕЖ=ВИН ПАДЕЖ=МЕСТ ПАДЕЖ=ПРЕДЛ',
-                      u'ЧАСТИЦА'])]
+                      #u'ЧАСТИЦА'
+                     ]),
+             (u'заводим', [u'ГЛАГОЛ ВИД=НЕСОВЕРШ ВРЕМЯ=НАСТОЯЩЕЕ ЛИЦО=1 НАКЛОНЕНИЕ=ИЗЪЯВ ПАДЕЖ=ВИН ПАДЕЖ=РОД ПАДЕЖ=ТВОР ЧИСЛО=МН'])
+             ]
 
     for word, required_tagsets in cases:
         model_tagsets = list(word2tags[word])
@@ -113,7 +121,7 @@ def run_tests(dict_path=None):
 
         for model_tagset in model_tagsets:
             if model_tagset not in required_tagsets:
-                raise AssertionError(u'Tagset "{}" for word "{}" is not valid'.format(model_tagset, word))
+                raise AssertionError(u'Predicted tagset "{}" for word "{}" is not valid'.format(model_tagset, word))
 
     print('All tests PASSED.')
 
@@ -159,16 +167,21 @@ if __name__ == '__main__':
     word2tagsets = dict()
     tagset2index = dict()
     nb_words = 0
+    filter_negative_scores = known_words is None
     print('Loading dictionary from {}'.format(word2tags_path))
     with io.open(word2tags_path, 'r', encoding='utf-8') as rdr:
         for line in rdr:
             tx = line.replace(chr(65279), '').strip().split('\t')
-            if len(tx) >= 3:
+            if len(tx) == 5:
+                if filter_negative_scores and int(tx[4]) < 0:
+                    # пропускаем формы, которые помечены как редкие или неграмматические (частотность < 0)
+                    continue
+
                 word = normalize_word(tx[0])
                 if known_words is None or word in known_words:
                     pos = tx[1]
                     lemma = normalize_word(tx[2])
-                    tags = clean_tagset(tx[3]) if len(tx) == 4 else u''
+                    tags = clean_tagset(tx[3]) if len(tx) == 5 else u''
 
                     tagset = (pos + ' ' + tags).strip()
 
