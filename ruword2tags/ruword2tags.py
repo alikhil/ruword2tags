@@ -13,7 +13,7 @@ import pickle
 import io
 import argparse
 #import dill
-from collections import namedtuple
+#from collections import namedtuple
 
 
 #TrieNode = namedtuple('TrieNode', 'char tagset_indeces nextchar2node')
@@ -102,7 +102,17 @@ def run_tests(dict_path=None):
     word2tags = RuWord2Tags()
     word2tags.load(dict_path)
 
-    cases = [(u'а', [u'СОЮЗ', u'ЧАСТИЦА']),
+    cases = [(u'очень', [u'НАРЕЧИЕ СТЕПЕНЬ=АТРИБ ТИП_МОДИФ=НАРЕЧ ТИП_МОДИФ=ПРИЛ']),
+             (u'поскорее', [u'НАРЕЧИЕ СТЕПЕНЬ=СРАВН']),
+             (u'поскорей', [u'НАРЕЧИЕ СТЕПЕНЬ=СРАВН']),
+             (u'сильнее', [u'НАРЕЧИЕ СТЕПЕНЬ=СРАВН', u'ПРИЛАГАТЕЛЬНОЕ КРАТКИЙ=0 СТЕПЕНЬ=СРАВН']),
+             (u'синее', [u'ПРИЛАГАТЕЛЬНОЕ КРАТКИЙ=0 ПАДЕЖ=ВИН РОД=СР СТЕПЕНЬ=АТРИБ ЧИСЛО=ЕД', u'ПРИЛАГАТЕЛЬНОЕ КРАТКИЙ=0 ПАДЕЖ=ИМ РОД=СР СТЕПЕНЬ=АТРИБ ЧИСЛО=ЕД']),
+             (u'трахее', [u'СУЩЕСТВИТЕЛЬНОЕ ПАДЕЖ=ДАТ РОД=ЖЕН ЧИСЛО=ЕД', u'СУЩЕСТВИТЕЛЬНОЕ ПАДЕЖ=ПРЕДЛ РОД=ЖЕН ЧИСЛО=ЕД']),
+             (u'полдня', [u'СУЩЕСТВИТЕЛЬНОЕ ПАДЕЖ=ИМ ПЕРЕЧИСЛИМОСТЬ=НЕТ РОД=МУЖ ЧИСЛО=ЕД',
+                          u'СУЩЕСТВИТЕЛЬНОЕ ПАДЕЖ=ВИН ПЕРЕЧИСЛИМОСТЬ=НЕТ РОД=МУЖ ЧИСЛО=ЕД',
+                          u'СУЩЕСТВИТЕЛЬНОЕ ПАДЕЖ=РОД ПЕРЕЧИСЛИМОСТЬ=НЕТ РОД=МУЖ ЧИСЛО=ЕД'
+                         ]),
+             (u'а', [u'СОЮЗ', u'ЧАСТИЦА']),
              (u'кошки', [u'СУЩЕСТВИТЕЛЬНОЕ ПАДЕЖ=ИМ РОД=ЖЕН ЧИСЛО=МН',
                          u'СУЩЕСТВИТЕЛЬНОЕ ПАДЕЖ=РОД РОД=ЖЕН ЧИСЛО=ЕД']),
              (u'на', [#u'ГЛАГОЛ ВИД=НЕСОВЕРШ ЛИЦО=2 НАКЛОНЕНИЕ=ПОБУД ТИП_ГЛАГОЛА=СТАТИЧ ЧИСЛО=ЕД',
@@ -167,17 +177,32 @@ if __name__ == '__main__':
     word2tagsets = dict()
     tagset2index = dict()
     nb_words = 0
-    filter_negative_scores = known_words is None
+    filter_negative_scores = True
     print('Loading dictionary from {}'.format(word2tags_path))
+
+    # В первом проходе по списку словоформ отберем формы, которые будем игнорировать из-за присвоенной
+    # им частоты < 0. Если все варианты распознавания слова имеют присвоенную частоту < 0, то не будем отсекать
+    # такие формы.
+    wordform2max_score = dict()
     with io.open(word2tags_path, 'r', encoding='utf-8') as rdr:
         for line in rdr:
             tx = line.replace(chr(65279), '').strip().split('\t')
             if len(tx) == 5:
-                if filter_negative_scores and int(tx[4]) < 0:
-                    # пропускаем формы, которые помечены как редкие или неграмматические (частотность < 0)
+                score = int(tx[4])
+                word = normalize_word(tx[0])
+                wordform2max_score[word] = max(score, wordform2max_score.get(word, -1000000))
+
+    # Основной, второй проход.
+    with io.open(word2tags_path, 'r', encoding='utf-8') as rdr:
+        for line in rdr:
+            tx = line.replace(chr(65279), '').strip().split('\t')
+            if len(tx) == 5:
+                word = normalize_word(tx[0])
+                if filter_negative_scores and wordform2max_score[word] >= 0 and int(tx[4]) < 0:
+                    # пропускаем формы, которые помечены как редкие или неграмматические (частотность < 0),
+                    # и для которых есть альтернативы с частотой >= 0.
                     continue
 
-                word = normalize_word(tx[0])
                 if known_words is None or word in known_words:
                     pos = tx[1]
                     lemma = normalize_word(tx[2])
@@ -252,7 +277,7 @@ if __name__ == '__main__':
     print('Number of good endings={}'.format(len(ending2tagsets)))
     print('Number of all endings={}'.format(len(all_ending2tagsets)))
 
-    print('Building TRIE...')
+    print('Building TRIE for {} words...'.format(len(word2tagsets)))
     trie_words = []
     for word, word_tagsets in word2tagsets.items():
         if word not in processed_words:
