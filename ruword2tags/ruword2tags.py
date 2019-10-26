@@ -88,9 +88,15 @@ class RuWord2Tags:
             p = dict_path
             self.db_filepath = os.path.join(os.path.dirname(dict_path), 'ruword2tags.db')
 
-        self.cnx = sqlite3.connect(self.db_filepath)
+        try:
+            self.cnx = sqlite3.connect(self.db_filepath)
+        except Exception as ex:
+            msg = u'Could not open db file "{}", error: {}'.format(self.db_filepath, ex)
+            raise RuntimeError(msg)
+
         self.cnx.isolation_level = None
         self.cur = self.cnx.cursor()
+
 
         with open(p, 'rb') as f:
             data = pickle.load(f)

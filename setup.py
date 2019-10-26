@@ -6,7 +6,7 @@ with io.open("README.md", mode="r", encoding='utf-8') as fh:
 
 setuptools.setup(
     name="ruword2tags",
-    version="0.0.39",
+    version="0.0.41",
     author="Ilya Koziev",
     author_email="inkoziev@gmail.com",
     description="Russian morphology",
@@ -14,6 +14,6 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/Koziev/ruword2tags",
     packages=setuptools.find_packages(),
-    package_data={'ruword2tags': ['*.dat']},
+    package_data={'ruword2tags': ['*.dat', '*.db']},
     include_package_data=True,
 )
