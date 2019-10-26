@@ -2,6 +2,8 @@
 """
 19.04.2019 - при парсинге словарной базы Solarix пропускаются словоформы с
 отрицательным скорингом (неупотребимые слова).
+
+26-10-2019 - переход на хранение части словарной базы в SQLite3
 """
 
 from __future__ import print_function
@@ -12,11 +14,8 @@ import os
 import pickle
 import io
 import argparse
-#import dill
-#from collections import namedtuple
+import sqlite3
 
-
-#TrieNode = namedtuple('TrieNode', 'char tagset_indeces nextchar2node')
 
 
 def create_trie_node(char):
@@ -45,6 +44,22 @@ def find_tagsets_in_trie_node(node, word):
         return node[1]
 
 
+def trie_constructed(trie_node, tagset2id):
+    tagset = tuple(sorted(trie_node[1]))
+    if tagset in tagset2id:
+        id_tagsets = tagset2id[tagset]
+    else:
+        id_tagsets = len(tagset2id) + 1
+        tagset2id[tagset] = id_tagsets
+
+    new_children = dict()
+    for next_char, child in trie_node[2].items():
+        new_children[next_char] = trie_constructed(child, tagset2id)
+
+    return (trie_node[0], id_tagsets, new_children)
+
+
+
 class RuWord2Tags:
     dict_filename = 'ruword2tags.dat'
 
@@ -54,6 +69,10 @@ class RuWord2Tags:
         self.ending2tagsets = None
         self.trie_root = None
         self.all_ending2tagsets = None
+        self.trie_tagsets = None
+        self.db_filepath = None
+        self.cnx = None
+        self.word2tagsets_cache = dict()
 
     def load(self, dict_path=None):
         if dict_path is None:
@@ -61,16 +80,31 @@ class RuWord2Tags:
             p = os.path.join(module_folder, '../output', self.dict_filename)
             if not os.path.exists(p):
                 p = os.path.join(module_folder, self.dict_filename)
+
+            self.db_filepath = os.path.join(module_folder, '../output', 'ruword2tags.db')
+            if not os.path.exists(self.db_filepath):
+                self.db_filepath = os.path.join(module_folder, 'ruword2tags.db')
         else:
             p = dict_path
+            self.db_filepath = os.path.join(os.path.dirname(dict_path), 'ruword2tags.db')
 
-        with gzip.open(p, 'r') as f:
+        self.cnx = sqlite3.connect(self.db_filepath)
+        self.cnx.isolation_level = None
+        self.cur = self.cnx.cursor()
+
+        with open(p, 'rb') as f:
             data = pickle.load(f)
             self.ending_lens = data['ending_lens']
             self.index2tagset = data['index2tagset']
             self.ending2tagsets = data['ending2tagsets']
             self.all_ending2tagsets = data['all_ending2tagsets']
-            self.trie_root = data['trie_root']
+            self.id2tagsets = data['id2tagsets']
+
+        if False:
+            trie_filepath = os.path.join(os.path.dirname(p), 'ruword2tags_trie.dat')
+            with gzip.open(trie_filepath, 'r') as f:
+                self.trie_root = pickle.load(f)
+
 
     def __getitem__(self, word):
         hit = False
@@ -83,9 +117,22 @@ class RuWord2Tags:
                 break
 
         if not hit:
-            for itagset in find_tagsets_in_trie_node(self.trie_root, word):
+            #for itagset in find_tagsets_in_trie_node(self.trie_root, word):
+            #    hit = True
+            #    yield self.index2tagset[itagset]
+
+            if word in self.word2tagsets_cache:
+                id_tagsets = self.word2tagsets_cache[word]
+                for itagset in self.id2tagsets[id_tagsets]:
+                    yield self.index2tagset[itagset]
                 hit = True
-                yield self.index2tagset[itagset]
+            else:
+                for r in self.cur.execute('SELECT id_tagsets FROM word_tagsets WHERE word=:word', {'word': word}):
+                    id_tagsets = int(r[0])
+                    self.word2tagsets_cache[word] = id_tagsets
+                    for itagset in self.id2tagsets[id_tagsets]:
+                        yield self.index2tagset[itagset]
+                    hit = True
 
         if not hit:
             for ending_len in reversed(self.ending_lens):
@@ -293,16 +340,46 @@ if __name__ == '__main__':
 
     index2tagset = dict((i, t) for (t, i) in tagset2index.items())
 
+    trie_tagsets = dict()
+    trie_root = trie_constructed(trie_root, trie_tagsets)
+
+    db_filepath = os.path.join(os.path.dirname(output_file), 'ruword2tags.db')
+    print('Writing "{}"...'.format(db_filepath))
+    with sqlite3.connect(db_filepath) as cnx:
+        cursor = cnx.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='word_tagsets'")
+        if not cursor.fetchone():
+            cnx.execute('CREATE TABLE word_tagsets(word TEXT NOT NULL PRIMARY KEY, id_tagsets INT not null)')
+        else:
+            cnx.execute('DELETE FROM word_tagsets')
+
+        for word, word_tagsets in word2tagsets.items():
+            if word not in processed_words:
+                tagsets2 = tuple(sorted(word_tagsets))
+                id_tagsets = trie_tagsets[tagsets2]
+                cursor.execute("INSERT INTO word_tagsets(word, id_tagsets) VALUES(:word, :tagsets)",
+                               {'word': word, 'tagsets': id_tagsets})
+
+        cnx.commit()
+
     lexicon_data = {'ending_lens': ending_lens,
                     'index2tagset': index2tagset,
                     'ending2tagsets': ending2tagsets,
                     'all_ending2tagsets': all_ending2tagsets,
-                    'trie_root': trie_root}
+                    'id2tagsets': dict((id, tagsets) for (tagsets, id) in trie_tagsets.items())
+                    }
 
-    with gzip.open(output_file, 'w') as f:
+    print('Writing "{}"...'.format(output_file))
+    with open(output_file, 'wb') as f:
         pickle.dump(lexicon_data, f, protocol=2)
 
-    print('Сохранен файл словаря размером {:d} Мб'.format(int(os.path.getsize(output_file)/1000000)))
+    trie_filepath = os.path.join(os.path.dirname(output_file), 'ruword2tags_trie.dat')
+    print('Writing "{}"...'.format(trie_filepath))
+    with gzip.open(trie_filepath, 'wb') as f:
+        pickle.dump(trie_root, f)
+
+    #print('Сохранен файл словаря размером {:d} Мб'.format(int(os.path.getsize(output_file)/1000000)))
+    print('All data stored.')
 
     # Теперь запускаем проверки для построенного словаря
     run_tests(output_file)
