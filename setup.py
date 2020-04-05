@@ -6,7 +6,7 @@ with io.open("README.md", mode="r", encoding='utf-8') as fh:
 
 setuptools.setup(
     name="ruword2tags",
-    version="0.0.47",
+    version="0.0.48",
     author="Ilya Koziev",
     author_email="inkoziev@gmail.com",
     description="Russian morphology",
