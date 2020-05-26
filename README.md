@@ -39,7 +39,7 @@
 
 ## Совместимость
 
-Пакет работает в питоне версий 2 и 3 под Windows и Linux, не требуя каких-либо внешних зависимостей.
+Пакет работает в питоне вер.3 под Windows и Linux, не требуя каких-либо внешних зависимостей.
 
 ## Установка
 
@@ -48,6 +48,19 @@
 ```
 pip3 install git+https://github.com/Koziev/ruword2tags
 ```
+
+## Ошибка "sqlite3.DatabaseError: file is not a database"
+
+К сожалению, после установки из репозитория часто возникает ошибка "sqlite3.DatabaseError: file is not a database"
+при работе со словарем. Это происходит из-за неверной выгрузки файла [ruword2tags.db](https://github.com/Koziev/ruword2tags/blob/master/ruword2tags/ruword2tags.db).
+Для исправления заберите копию этого файла [отсюда](https://drive.google.com/open?id=1xlL8ijnwE6tAPpsil7Q1yWkXY4mn2YCd)
+и скопируйте его в склонированный локально репозиторий. После этого установите пакет из локальной
+копии командой 
+
+```
+pip3 install .
+```
+
 
 ## API
 
