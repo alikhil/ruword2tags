@@ -89,7 +89,7 @@ class RuWord2Tags:
             self.db_filepath = os.path.join(os.path.dirname(dict_path), 'ruword2tags.db')
 
         try:
-            self.cnx = sqlite3.connect(self.db_filepath, connect_args={"check_same_thread": False})
+            self.cnx = sqlite3.connect(self.db_filepath, check_same_thread=False)
         except Exception as ex:
             msg = u'Could not open db file "{}", error: {}'.format(self.db_filepath, ex)
             raise RuntimeError(msg)
